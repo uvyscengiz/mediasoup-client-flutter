@@ -191,7 +191,7 @@ class UnifiedPlan extends HandlerInterface {
       mid: localId,
       kind: options.kind,
       offerRtpParameters: options.rtpParameters,
-      streamId: options.rtpParameters.rtcp!.cname,
+      streamId: options.rtpParameters.rtcp!.cname ?? 'default-stream',
       trackId: options.trackId,
     );
 
@@ -209,10 +209,14 @@ class UnifiedPlan extends HandlerInterface {
 
     SdpObject localSdpObject = SdpObject.fromMap(parse(answer.sdp!));
 
-    MediaObject answerMediaObject = localSdpObject.media.firstWhere(
-      (MediaObject m) => m.mid == localId,
-      orElse: () => null as MediaObject,
-    );
+    MediaObject? answerMediaObject;
+    try {
+      answerMediaObject = localSdpObject.media.firstWhere(
+        (MediaObject m) => m.mid == localId,
+      );
+    } catch (e) {
+      answerMediaObject = null;
+    }
 
     // May need to modify codec parameters in the answer based on codec
     // parameters in the offer.

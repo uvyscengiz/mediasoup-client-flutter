@@ -188,7 +188,7 @@ class PlanB extends HandlerInterface {
 
     String localId = options.trackId;
     String mid = RTCRtpMediaTypeExtension.value(options.kind);
-    String streamId = options.rtpParameters.rtcp!.cname;
+    String streamId = options.rtpParameters.rtcp!.cname ?? 'default-stream';
 
     _logger.debug(
         'receive() | forcing a random remote streamId to avoid well known bug in native');
@@ -213,10 +213,14 @@ class PlanB extends HandlerInterface {
     RTCSessionDescription answer = await _pc!.createAnswer();
 
     SdpObject localSdpObject = SdpObject.fromMap(parse(answer.sdp!));
-    MediaObject? answerMediaObject = localSdpObject.media.firstWhere(
-      (MediaObject m) => m.mid == mid,
-      orElse: () => null as MediaObject,
-    );
+    MediaObject? answerMediaObject;
+    try {
+      answerMediaObject = localSdpObject.media.firstWhere(
+        (MediaObject m) => m.mid == mid,
+      );
+    } catch (e) {
+      answerMediaObject = null;
+    }
 
     // May need to modify codec parameters in the answer based on codec
     // parameters in the offer.
@@ -235,14 +239,20 @@ class PlanB extends HandlerInterface {
 
     await _pc!.setLocalDescription(answer);
 
-    MediaStream? stream = (_pc!
-            .getRemoteStreams()
-            .where((s) => s != null)
-            .toList() as List<MediaStream>)
-        .firstWhere(
-      (MediaStream s) => s.id == streamId,
-      orElse: () => null as MediaStream,
-    );
+    MediaStream? stream;
+    try {
+      stream = (_pc!.getRemoteStreams().where((s) => s != null).toList()
+              as List<MediaStream>)
+          .firstWhere(
+        (MediaStream s) => s.id == streamId,
+      );
+    } catch (e) {
+      stream = null;
+    }
+    if (stream == null) {
+      throw ('remote stream not found');
+    }
+
     MediaStreamTrack? track = stream.getTrackById(localId);
 
     if (track == null) {
@@ -485,10 +495,13 @@ class PlanB extends HandlerInterface {
       _logger.debug('send() | enabling simulcast');
 
       localSdpObject = SdpObject.fromMap(parse(offer.sdp!));
-      offerMediaObject = localSdpObject.media.firstWhere(
-        (MediaObject m) => m.type == 'video',
-        orElse: () => null as MediaObject,
-      );
+      try {
+        offerMediaObject = localSdpObject.media.firstWhere(
+          (MediaObject m) => m.type == 'video',
+        );
+      } catch (e) {
+        throw ('video media object not found');
+      }
 
       PlanBUtils.addLegacySimulcast(
           offerMediaObject, options.track, options.encodings.length);
@@ -504,10 +517,13 @@ class PlanB extends HandlerInterface {
 
     localSdpObject =
         SdpObject.fromMap(parse((await _pc!.getLocalDescription())!.sdp!));
-    offerMediaObject = localSdpObject.media.firstWhere(
-      (MediaObject m) => m.type == options.track.kind,
-      orElse: () => null as MediaObject,
-    );
+    try {
+      offerMediaObject = localSdpObject.media.firstWhere(
+        (MediaObject m) => m.type == options.track.kind,
+      );
+    } catch (e) {
+      throw ('${options.track.kind} media object not found');
+    }
 
     // Set RTCP CNAME.
     sendingRtpParameters.rtcp!.cname = CommonUtils.getCname(offerMediaObject);
@@ -589,10 +605,14 @@ class PlanB extends HandlerInterface {
     if (!_hasDataChannelMediaSection) {
       RTCSessionDescription offer = await _pc!.createOffer();
       SdpObject localSdpObject = SdpObject.fromMap(parse(offer.sdp!));
-      MediaObject offerMediaObject = localSdpObject.media.firstWhere(
-        (MediaObject m) => m.type == 'application',
-        orElse: () => null as MediaObject,
-      );
+      MediaObject offerMediaObject;
+      try {
+        offerMediaObject = localSdpObject.media.firstWhere(
+          (MediaObject m) => m.type == 'application',
+        );
+      } catch (e) {
+        throw ('application media object not found');
+      }
 
       if (!_transportReady) {
         await _setupTransport(

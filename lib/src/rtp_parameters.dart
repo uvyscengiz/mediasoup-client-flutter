@@ -792,9 +792,9 @@ class RtcpParameters extends RTCRTCPParameters {
 
   factory RtcpParameters.fromMap(Map<dynamic, dynamic> map) {
     return RtcpParameters(
-      cname: map['cname'],
+      cname: map['cname'] ?? '',
       mux: map['mux'],
-      reducedSize: map['reducedSize'],
+      reducedSize: map['reducedSize'] ?? true,
     );
   }
 
@@ -806,7 +806,7 @@ class RtcpParameters extends RTCRTCPParameters {
   }) {
     return RtcpParameters(
       mux: mux != null ? mux : old.mux,
-      cname: cname != null ? cname : old.cname,
+      cname: cname != null ? cname : (old.cname ?? ''),
       reducedSize: reducedSize != null ? reducedSize : old.reducedSize,
     );
   }
